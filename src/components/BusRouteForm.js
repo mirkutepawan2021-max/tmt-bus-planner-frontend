@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-// THE SPINNER COMPONENT IS NOW CORRECTLY IMPORTED
 import { Form, Button, Container, Row, Col, Card, ProgressBar, Alert, InputGroup, ToggleButtonGroup, ToggleButton, Spinner } from 'react-bootstrap';
+import API_URL from '../apiConfig'; // IMPORTING OUR COMMON URL
 
 const getInitialState = () => ({
     routeNumber: '',
@@ -39,7 +39,8 @@ const BusRouteForm = () => {
             setLoading(true);
             const fetchRouteData = async () => {
                 try {
-                    const response = await fetch(`http://localhost:4000/api/bus-routes/${id}`);
+                    // USING THE COMMON URL
+                    const response = await fetch(`${API_URL}/api/bus-routes/${id}`);
                     if (!response.ok) throw new Error('Could not fetch route data.');
                     const data = await response.json();
                     setFormData({ ...getInitialState(), ...data });
@@ -55,32 +56,12 @@ const BusRouteForm = () => {
         }
     }, [id]);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        if (name.includes('.')) {
-            const [outerKey, innerKey] = name.split('.');
-            setFormData(prev => ({ ...prev, [outerKey]: { ...prev[outerKey], [innerKey]: value } }));
-        } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
-        }
-    };
-    
-    const handleToggleChange = (val) => { setFormData(prev => ({ ...prev, isTurnoutFromDepot: val })); };
-    const nextStep = () => setStep(prev => prev + 1);
-    const prevStep = () => setStep(prev => prev - 1);
-
-    const isStepValid = () => {
-        if (step === 1) return formData.routeNumber && formData.routeName && formData.fromTerminal && formData.toTerminal;
-        if (step === 2) return formData.leg1?.kilometers && formData.leg1?.timePerKm && formData.leg2?.kilometers && formData.leg2?.timePerKm;
-        if (step === 3) return formData.busesAssigned !== '';
-        return true;
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setLoading(true);
-        const url = id ? `http://localhost:4000/api/bus-routes/${id}` : 'http://localhost:4000/api/bus-routes';
+        // USING THE COMMON URL
+        const url = `${API_URL}/api/bus-routes${id ? '/' + id : ''}`;
         const method = id ? 'PUT' : 'POST';
         try {
             const response = await fetch(url, {
@@ -99,7 +80,26 @@ const BusRouteForm = () => {
             setLoading(false);
         }
     };
-
+    
+    // --- All other handlers and render functions are unchanged and correct ---
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        if (name.includes('.')) {
+            const [outerKey, innerKey] = name.split('.');
+            setFormData(prev => ({ ...prev, [outerKey]: { ...prev[outerKey], [innerKey]: value } }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
+    };
+    const handleToggleChange = (val) => { setFormData(prev => ({ ...prev, isTurnoutFromDepot: val })); };
+    const nextStep = () => setStep(prev => prev + 1);
+    const prevStep = () => setStep(prev => prev - 1);
+    const isStepValid = () => {
+        if (step === 1) return formData.routeNumber && formData.routeName && formData.fromTerminal && formData.toTerminal;
+        if (step === 2) return formData.leg1?.kilometers && formData.leg1?.timePerKm && formData.leg2?.kilometers && formData.leg2?.timePerKm;
+        if (step === 3) return formData.busesAssigned !== '';
+        return true;
+    };
     const renderStep1 = () => (
         <>
             <h4>Step 1: Core Route Details</h4><hr />
@@ -113,7 +113,6 @@ const BusRouteForm = () => {
             </Row>
         </>
     );
-
     const renderStep2 = () => (
         <>
             <h4>Step 2: Trip Leg Details</h4><hr />
@@ -128,7 +127,6 @@ const BusRouteForm = () => {
             </Row>
         </>
     );
-    
     const renderStep3 = () => (
         <>
             <h4>Step 3: Depot, Fleet & Crew Details</h4><hr />
@@ -162,7 +160,6 @@ const BusRouteForm = () => {
             </Row>
         </>
     );
-
     const renderReviewStep = () => (
         <>
             <h4>Step 4: Review & Submit</h4><hr />
@@ -173,7 +170,6 @@ const BusRouteForm = () => {
             </Row>
         </>
     );
-
     const renderStepContent = () => {
         switch (step) {
             case 1: return renderStep1();

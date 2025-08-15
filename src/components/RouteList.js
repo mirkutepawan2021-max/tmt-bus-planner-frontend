@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Container, Card, Button, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
+import API_URL from '../apiConfig'; // IMPORTING OUR COMMON URL
 
 const RouteList = () => {
     const [routes, setRoutes] = useState([]);
@@ -12,7 +13,8 @@ const RouteList = () => {
     const fetchRoutes = async () => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:4000/api/bus-routes');
+            // USING THE COMMON URL
+            const response = await fetch(`${API_URL}/api/bus-routes`);
             if (!response.ok) throw new Error('Network response was not ok');
             const data = await response.json();
             setRoutes(data);
@@ -40,8 +42,9 @@ const RouteList = () => {
     const handleDelete = async () => {
         if (!routeToDelete) return;
         try {
-            await fetch(`http://localhost:4000/api/bus-routes/${routeToDelete._id}`, { method: 'DELETE' });
-            fetchRoutes(); // Refresh the list after deleting
+            // USING THE COMMON URL
+            await fetch(`${API_URL}/api/bus-routes/${routeToDelete._id}`, { method: 'DELETE' });
+            fetchRoutes();
         } catch (err) {
             setError('Delete operation failed.');
         } finally {
