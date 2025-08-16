@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Form, Button, Container, Row, Col, Card, ProgressBar, Alert, InputGroup, ToggleButtonGroup, ToggleButton, Spinner } from 'react-bootstrap';
-
+import API_URL from '../apiConfig';
 const getInitialState = () => ({
     routeNumber: '',
     routeName: '',
@@ -42,7 +42,7 @@ const BusRouteForm = () => {
             setLoading(true);
             const fetchRouteData = async () => {
                 try {
-                    const response = await fetch(`http://localhost:4000/api/bus-routes/${id}`);
+                    const response = await fetch(`${API_URL}/api/bus-routes/${id}`);
                     if (!response.ok) throw new Error('Could not fetch route data.');
                     const data = await response.json();
                     
