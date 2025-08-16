@@ -146,7 +146,7 @@ const BusRouteForm = () => {
         e.preventDefault();
         setError('');
         setLoading(true);
-        const url = `http://localhost:4000/api/bus-routes${id ? '/' + id : ''}`;
+        const url = `${API_URL}/api/bus-routes${id ? '/' + id : ''}`;
         const method = id ? 'PUT' : 'POST';
 
         // Optional: Debugging console.log for FormData
