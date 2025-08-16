@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Container, Card, Button, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
-import API_URL from '../apiConfig'; // IMPORTING OUR COMMON URL
+import API_URL from '../apiConfig';
 
 const RouteList = () => {
     const [routes, setRoutes] = useState([]);
@@ -13,7 +13,6 @@ const RouteList = () => {
     const fetchRoutes = async () => {
         setLoading(true);
         try {
-            // USING THE COMMON URL
             const response = await fetch(`${API_URL}/api/bus-routes`);
             if (!response.ok) throw new Error('Network response was not ok');
             const data = await response.json();
@@ -42,7 +41,6 @@ const RouteList = () => {
     const handleDelete = async () => {
         if (!routeToDelete) return;
         try {
-            // USING THE COMMON URL
             await fetch(`${API_URL}/api/bus-routes/${routeToDelete._id}`, { method: 'DELETE' });
             fetchRoutes();
         } catch (err) {
@@ -75,10 +73,17 @@ const RouteList = () => {
                                             <strong>From:</strong> {route.fromTerminal} <br/>
                                             <strong>To:</strong> {route.toTerminal}
                                         </Card.Text>
+                                        <Card.Text>
+                                            <strong>Buses:</strong> {route.busesAssigned} &nbsp;
+                                            <strong>Start:</strong> {route.serviceStartTime} &nbsp;
+                                            <strong>Duration:</strong> {route.dutyDurationHours} hrs
+                                        </Card.Text>
                                     </Card.Body>
-                                    <Card.Footer className="text-end">
+                                    <Card.Footer className="text-end d-flex justify-content-between align-items-center">
                                         <Button as={Link} to={`/edit/${route._id}`} variant="outline-primary" size="sm" className="me-2">Edit</Button>
                                         <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(route)}>Delete</Button>
+                                        {/* NEW: View Schedule Button */}
+                                        <Button as={Link} to={`/schedule/${route._id}`} variant="success" size="sm" className="ms-auto">View Schedule</Button>
                                     </Card.Footer>
                                 </Card>
                             </Col>
