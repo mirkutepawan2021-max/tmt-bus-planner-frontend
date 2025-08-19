@@ -1,3 +1,5 @@
+// frontend/src/components/RouteList.js
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Container, Card, Button, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
@@ -80,10 +82,15 @@ const RouteList = () => {
                                         </Card.Text>
                                     </Card.Body>
                                     <Card.Footer className="text-end d-flex justify-content-between align-items-center">
-                                        <Button as={Link} to={`/edit/${route._id}`} variant="outline-primary" size="sm" className="me-2">Edit</Button>
-                                        <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(route)}>Delete</Button>
-                                        {/* NEW: View Schedule Button */}
-                                        <Button as={Link} to={`/schedule/${route._id}`} variant="success" size="sm" className="ms-auto">View Schedule</Button>
+                                        <div>
+                                            <Button as={Link} to={`/edit/${route._id}`} variant="outline-primary" size="sm" className="me-2">Edit</Button>
+                                            <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(route)}>Delete</Button>
+                                        </div>
+                                        <div>
+                                            {/* THE ONLY CHANGE IS HERE: ADDING THE VIEW DUTY BUTTON */}
+                                            <Button as={Link} to={`/duty-board/${route._id}`} variant="info" size="sm" className="me-2">View Duty</Button>
+                                            <Button as={Link} to={`/schedule/${route._id}`} variant="success" size="sm">View Schedule</Button>
+                                        </div>
                                     </Card.Footer>
                                 </Card>
                             </Col>
