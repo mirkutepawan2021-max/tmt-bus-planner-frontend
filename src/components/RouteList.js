@@ -1,8 +1,8 @@
 // frontend/src/components/RouteList.js
 
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Container, Card, Button, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
+import { Link, useNavigate } from 'react-router-dom';
+import { Container, Card, Button, Row, Col, Spinner, Alert, Modal, ButtonGroup } from 'react-bootstrap';
 import API_URL from '../apiConfig';
 
 const RouteList = () => {
@@ -11,6 +11,7 @@ const RouteList = () => {
     const [error, setError] = useState('');
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [routeToDelete, setRouteToDelete] = useState(null);
+    const navigate = useNavigate();
 
     const fetchRoutes = async () => {
         setLoading(true);
@@ -66,35 +67,37 @@ const RouteList = () => {
                     <Alert variant="info">No routes found. Get started by creating one!</Alert>
                 ) : (
                     <Row xs={1} md={2} lg={3} className="g-4">
-                        {routes.map((route) => (
-                            <Col key={route._id}>
-                                <Card className="h-100 shadow-sm">
-                                    <Card.Header as="h5">{route.routeNumber}: {route.routeName}</Card.Header>
-                                    <Card.Body>
-                                        <Card.Text>
-                                            <strong>From:</strong> {route.fromTerminal} <br/>
-                                            <strong>To:</strong> {route.toTerminal}
-                                        </Card.Text>
-                                        <Card.Text>
-                                            <strong>Buses:</strong> {route.busesAssigned} &nbsp;
-                                            <strong>Start:</strong> {route.serviceStartTime} &nbsp;
-                                            <strong>Duration:</strong> {route.dutyDurationHours} hrs
-                                        </Card.Text>
-                                    </Card.Body>
-                                    <Card.Footer className="text-end d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <Button as={Link} to={`/edit/${route._id}`} variant="outline-primary" size="sm" className="me-2">Edit</Button>
-                                            <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(route)}>Delete</Button>
-                                        </div>
-                                        <div>
-                                            {/* THE ONLY CHANGE IS HERE: ADDING THE VIEW DUTY BUTTON */}
-                                            <Button as={Link} to={`/duty-board/${route._id}`} variant="info" size="sm" className="me-2">View Duty</Button>
-                                            <Button as={Link} to={`/schedule/${route._id}`} variant="success" size="sm">View Schedule</Button>
-                                        </div>
-                                    </Card.Footer>
-                                </Card>
-                            </Col>
-                        ))}
+                        {[...routes]
+                            .sort((a, b) => parseInt(a.routeNumber, 10) - parseInt(b.routeNumber, 10))
+                            .map((route) => (
+                                <Col key={route._id}>
+                                    <Card className="h-100 shadow-sm">
+                                        <Card.Header as="h5">{route.routeNumber}: {route.routeName}</Card.Header>
+                                        <Card.Body>
+                                            <Card.Text>
+                                                <strong>From:</strong> {route.fromTerminal} <br/>
+                                                <strong>To:</strong> {route.toTerminal}
+                                            </Card.Text>
+                                            <Card.Text>
+                                                <strong>Buses:</strong> {route.busesAssigned} &nbsp;
+                                                <strong>Start:</strong> {route.serviceStartTime} &nbsp;
+                                                <strong>Duration:</strong> {route.dutyDurationHours} hrs
+                                            </Card.Text>
+                                        </Card.Body>
+                                        {/* THE FIX IS HERE: Split into two ButtonGroups with a flex container */}
+                                        <Card.Footer className="d-flex justify-content-between">
+                                            <ButtonGroup>
+                                                <Button as={Link} to={`/edit/${route._id}`} variant="outline-primary" size="sm">Edit</Button>
+                                                <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(route)}>Delete</Button>
+                                            </ButtonGroup>
+                                            <ButtonGroup>
+                                                <Button as={Link} to={`/duty-board/${route._id}`} variant="info" size="sm">View Duty</Button>
+                                                <Button as={Link} to={`/schedule/${route._id}`} variant="success" size="sm">View Schedule</Button>
+                                            </ButtonGroup>
+                                        </Card.Footer>
+                                    </Card>
+                                </Col>
+                            ))}
                     </Row>
                 )}
             </Container>
