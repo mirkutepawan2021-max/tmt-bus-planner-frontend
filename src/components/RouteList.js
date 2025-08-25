@@ -84,17 +84,22 @@ const RouteList = () => {
                                                 <strong>Duration:</strong> {route.dutyDurationHours} hrs
                                             </Card.Text>
                                         </Card.Body>
-                                        {/* THE FIX IS HERE: Split into two ButtonGroups with a flex container */}
-                                        <Card.Footer className="d-flex justify-content-between">
-                                            <ButtonGroup>
-                                                <Button as={Link} to={`/edit/${route._id}`} variant="outline-primary" size="sm">Edit</Button>
-                                                <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(route)}>Delete</Button>
-                                            </ButtonGroup>
-                                            <ButtonGroup>
-                                                <Button as={Link} to={`/duty-board/${route._id}`} variant="info" size="sm">View Duty</Button>
-                                                <Button as={Link} to={`/schedule/${route._id}`} variant="success" size="sm">View Schedule</Button>
-                                            </ButtonGroup>
+                                        
+                                        {/* --- UPDATED BUTTON LAYOUT --- */}
+                                        <Card.Footer>
+                                            <div className="d-grid gap-2">
+                                                <ButtonGroup className="w-100">
+                                                    <Button as={Link} to={`/edit/${route._id}`} variant="outline-primary" size="sm">Edit</Button>
+                                                    <Button variant="outline-danger" size="sm" onClick={() => openDeleteModal(route)}>Delete</Button>
+                                                </ButtonGroup>
+                                                <ButtonGroup className="w-100">
+                                                    <Button as={Link} to={`/duty-board/${route._id}`} variant="info" size="sm">View Duty</Button>
+                                                    <Button as={Link} to={`/schedule/${route._id}`} variant="success" size="sm">View Schedule</Button>
+                                                    <Button as={Link} to={`/timetable/${route._id}`} variant="warning" size="sm">View Timetable</Button>
+                                                </ButtonGroup>
+                                            </div>
                                         </Card.Footer>
+
                                     </Card>
                                 </Col>
                             ))}
