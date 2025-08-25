@@ -50,7 +50,6 @@ const DutyBoard = () => {
     }, [id]);
 
     useEffect(() => {
-        // This effect processes the schedule into the split-duty format from the PDF
         if (route && schedule && schedule.schedules) {
             const duties = [];
             Object.values(schedule.schedules).forEach(shift => {
@@ -66,12 +65,9 @@ const DutyBoard = () => {
                     const totalShiftMinutes = dutyEndEvent.rawTime - callingTimeEvent.rawTime;
                     const totalShiftHours = formatMinutesToHHMM(totalShiftMinutes);
                     const busNumber = busName.split(' ')[1];
-                    
-                    // THE FIX IS HERE: Correct optional chaining syntax
                     const firstDepartureTime = firstTripEvent?.legs?.[0]?.departureTime || 'N/A';
 
                     if (breakEvent) {
-                        // Create two rows if there is a break
                         duties.push({
                             busNo: busNumber,
                             reportingTime: callingTimeEvent.time,
@@ -87,7 +83,6 @@ const DutyBoard = () => {
                             totalShiftHours: totalShiftHours,
                         });
                     } else {
-                        // Create a single row if there is no break
                         duties.push({
                             busNo: busNumber,
                             reportingTime: callingTimeEvent.time,
@@ -107,55 +102,79 @@ const DutyBoard = () => {
             setProcessedDuties(duties);
         }
     }, [route, schedule]);
+    
+    // --- FUNCTION TO HANDLE PRINTING ---
+    const handlePrint = () => {
+        window.print();
+    };
 
     if (loading) return <Container className="my-5 text-center"><Spinner animation="border" /></Container>;
     if (error) return <Container className="my-5"><Alert variant="danger">{error}</Alert></Container>;
     if (!route) return <Container className="my-5"><Alert variant="info">No route data found.</Alert></Container>;
 
     return (
-        <Container className="my-5">
-            <Card className="border-0 shadow-sm">
-                <Card.Header className="p-3 bg-light text-center">
-                    <h4 className="mb-0">Transport Service, Thane Municipal Corporation, Thane</h4>
-                    <p className="mb-0 text-muted">Duty Board for Route {route.routeNumber}: {route.routeName}</p>
-                </Card.Header>
-                <Card.Body>
-                    <Table striped bordered hover responsive>
-                        <thead className="table-dark">
-                            <tr>
-                                <th>SR. NO.</th>
-                                <th>BUS NO.</th>
-                                <th>REPORTING TIME</th>
-                                <th>BUS BOARDING TIME</th>
-                                <th>BUS DEPARTURE TIME</th>
-                                <th>TOTAL SHIFT HOURS</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {processedDuties.length > 0 ? (
-                                processedDuties.map((duty, index) => (
-                                    <tr key={index}>
-                                        <td>{index + 1}</td>
-                                        <td>{duty.busNo}</td>
-                                        <td>{duty.reportingTime}</td>
-                                        <td>{duty.busBoardingTime}</td>
-                                        <td>{duty.busDepartureTime}</td>
-                                        <td>{duty.totalShiftHours}</td>
-                                    </tr>
-                                ))
-                            ) : (
+        <>
+            {/* --- STYLESHEET FOR PRINT-FRIENDLY VIEW --- */}
+            <style type="text/css" media="print">
+                {`
+                    @page { size: auto; margin: 0.5in; }
+                    body { background-color: #FFFFFF !important; }
+                    .no-print { display: none !important; }
+                    .card { border: none !important; box-shadow: none !important; }
+                    .card-header, .card-footer { background-color: #FFFFFF !important; }
+                    h4, p { color: #000 !important; }
+                `}
+            </style>
+            <Container className="my-5">
+                <Card className="border-0 shadow-sm">
+                    <Card.Header className="p-3 bg-light text-center">
+                        <h4 className="mb-0">Transport Service, Thane Municipal Corporation, Thane</h4>
+                        <p className="mb-0 text-muted">Duty Board for Route {route.routeNumber}: {route.routeName}</p>
+                    </Card.Header>
+                    <Card.Body>
+                        {/* --- PRINT BUTTON ADDED --- */}
+                        <div className="d-flex justify-content-end mb-3 no-print">
+                            <Button variant="outline-secondary" onClick={handlePrint}>
+                                Print Duty Board
+                            </Button>
+                        </div>
+                        <Table striped bordered hover responsive>
+                            <thead className="table-dark">
                                 <tr>
-                                    <td colSpan="6" className="text-center">No duty information available to display.</td>
+                                    <th>SR. NO.</th>
+                                    <th>BUS NO.</th>
+                                    <th>REPORTING TIME</th>
+                                    <th>BUS BOARDING TIME</th>
+                                    <th>BUS DEPARTURE TIME</th>
+                                    <th>TOTAL SHIFT HOURS</th>
                                 </tr>
-                            )}
-                        </tbody>
-                    </Table>
-                </Card.Body>
-                <Card.Footer className="text-center">
-                     <Button as={Link} to="/" variant="outline-secondary" size="sm">Back to Dashboard</Button>
-                </Card.Footer>
-            </Card>
-        </Container>
+                            </thead>
+                            <tbody>
+                                {processedDuties.length > 0 ? (
+                                    processedDuties.map((duty, index) => (
+                                        <tr key={index}>
+                                            <td>{index + 1}</td>
+                                            <td>{duty.busNo}</td>
+                                            <td>{duty.reportingTime}</td>
+                                            <td>{duty.busBoardingTime}</td>
+                                            <td>{duty.busDepartureTime}</td>
+                                            <td>{duty.totalShiftHours}</td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="6" className="text-center">No duty information available to display.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </Table>
+                    </Card.Body>
+                    <Card.Footer className="text-center no-print">
+                         <Button as={Link} to="/" variant="outline-secondary" size="sm">Back to Dashboard</Button>
+                    </Card.Footer>
+                </Card>
+            </Container>
+        </>
     );
 };
 
