@@ -9,7 +9,7 @@ const BusScheduleView = () => {
     const { id } = useParams();
     const [route, setRoute] = useState(null);
     const [scheduleOutput, setScheduleOutput] = useState(null);
-    const [loading, setLoading] = useState(true); 
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -22,7 +22,7 @@ const BusScheduleView = () => {
                 ]);
 
                 if (!routeResponse.ok) throw new Error('Could not fetch route data.');
-                const routeData = await routeResponse.json(); 
+                const routeData = await routeResponse.json();
                 setRoute(routeData);
 
                 if (!scheduleResponse.ok) {
@@ -43,153 +43,134 @@ const BusScheduleView = () => {
 
     const handlePrint = () => { window.print(); };
 
-    if (loading) return <Container className="my-5 text-center"><Spinner animation="border" /></Container>;
+    if (loading) return <Container className="text-center my-5"><Spinner animation="border" /></Container>;
     if (error) return <Container className="my-5"><Alert variant="danger">{error}</Alert></Container>;
     if (!route || !scheduleOutput || !scheduleOutput.schedules || Object.keys(scheduleOutput.schedules).length === 0) {
-        return <Container className="my-5"><Alert variant="info">No schedule generated.</Alert></Container>;
+        return <Container className="my-5"><Alert variant="warning">No schedule could be generated for this route.</Alert></Container>;
     }
 
     const generateTableData = () => {
         const allSchedulesByShift = scheduleOutput.schedules;
-        const allBusNamesSorted = [];
-        const shiftHeaderMap = {};
         const busSchedulesLookup = {};
-
-        const sortedShifts = Object.entries(allSchedulesByShift).sort((a, b) => a[0].localeCompare(b[0]));
-        sortedShifts.forEach(([shiftName, busesInShift]) => {
-            const busNames = Object.keys(busesInShift).sort((a,b) => parseInt(a.split(' ')[1]) - parseInt(b.split(' ')[1]));
-            shiftHeaderMap[shiftName] = busNames.length;
-            allBusNamesSorted.push(...busNames);
-            busNames.forEach(busName => { busSchedulesLookup[busName] = busesInShift[busName]; });
+        
+        // Step 1: Group buses into S1, General, and S2+
+        const headerGroups = { s1: new Set(), general: new Set(), others: {} };
+        Object.entries(allSchedulesByShift).forEach(([shiftName, busesInShift]) => {
+            Object.entries(busesInShift).forEach(([busName, schedule]) => {
+                busSchedulesLookup[busName] = schedule;
+                if (busName.startsWith('General')) {
+                    headerGroups.general.add(busName);
+                } else if (shiftName === 'S1') {
+                    headerGroups.s1.add(busName);
+                } else {
+                    if (!headerGroups.others[shiftName]) headerGroups.others[shiftName] = new Set();
+                    headerGroups.others[shiftName].add(busName);
+                }
+            });
         });
 
-        if (allBusNamesSorted.length === 0) return { shiftHeaderMap: {}, allBusNamesSorted: [], tableRows: [] };
+        const sortBusNames = (arr) => Array.from(arr).sort((a,b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
+        
+        // Step 2: Build the final column order and headers
+        const s1Sorted = sortBusNames(headerGroups.s1);
+        const generalSorted = sortBusNames(headerGroups.general);
+        const otherShiftsSorted = Object.entries(headerGroups.others).sort(([a], [b]) => a.localeCompare(b));
+        
+        const allBusNamesSorted = [
+            ...s1Sorted,
+            ...generalSorted,
+            ...otherShiftsSorted.flatMap(([, busSet]) => sortBusNames(busSet))
+        ];
 
+        const finalHeaders = [];
+        if (s1Sorted.length > 0) finalHeaders.push({ name: 'S1', count: s1Sorted.length });
+        if (generalSorted.length > 0) finalHeaders.push({ name: 'General', count: generalSorted.length });
+        otherShiftsSorted.forEach(([shiftName, busSet]) => {
+            finalHeaders.push({ name: shiftName, count: busSet.size });
+        });
+
+        // Step 3: Map all events to a displayable format
         const displayMap = {};
         const labelMetadata = new Map();
-
         allBusNamesSorted.forEach(busName => {
             displayMap[busName] = {};
             const schedule = busSchedulesLookup[busName] || [];
             schedule.forEach(event => {
                 const sortTime = event.rawTime ?? event.rawDepartureTime;
-                
                 if (event.type === 'Trip') {
                     event.legs.forEach(leg => {
-                        const label = `Trip ${event.tripNumber} ${leg.departureLocation}`;
-                        displayMap[busName][label] = leg.departureTime;
-                        if (!labelMetadata.has(label) || leg.rawDepartureTime < labelMetadata.get(label).sortTime) {
-                            labelMetadata.set(label, { sortTime: leg.rawDepartureTime, type: event.type });
+                        const label = `Trip Leg ${leg.legNumber} - Trip ${event.tripNumber}`;
+                        if (!labelMetadata.has(label)) {
+                            labelMetadata.set(label, { sortTime: leg.rawDepartureTime, type: 'Trip', displayText: `${leg.departureLocation} -> ${leg.arrivalLocation}`, tripNumber: event.tripNumber, legNumber: leg.legNumber });
                         }
+                        displayMap[busName][label] = leg.departureTime;
                     });
                 } else {
                     const label = (event.type === 'Break') ? `Break @ ${event.location}` : event.type;
-                    
-                    if (event.type === 'Depot Movement' || event.type === 'Trip to Depot') {
-                        const leg = event.legs?.[0]; 
-                        if (leg) displayMap[busName][label] = `${leg.departureTime} to ${leg.arrivalTime}`;
-                    } else if (event.type === 'Break') {
-                        displayMap[busName][label] = `${event.startTime} to ${event.endTime}`;
-                    } else {
-                        displayMap[busName][label] = event.time;
-                    }
-
-                    if (!labelMetadata.has(label) || sortTime < labelMetadata.get(label).sortTime) {
-                        labelMetadata.set(label, { sortTime, type: event.type });
-                    }
+                    if (!labelMetadata.has(label)) labelMetadata.set(label, { sortTime, type: event.type, displayText: label });
+                    if (event.type === 'Depot Movement' || event.type === 'Trip to Depot') displayMap[busName][label] = `${event.legs?.[0]?.departureTime} to ${event.legs?.[0]?.arrivalTime}`;
+                    else displayMap[busName][label] = event.time || `${event.startTime} to ${event.endTime}`;
                 }
             });
         });
         
-        const rowLabels = Array.from(labelMetadata.keys());
-
-        // THE DEFINITIVE SORTING FIX
-        const getPriority = (type) => {
-            switch (type) {
-                case 'Calling Time': return 1;
-                case 'Preparation': return 2;
-                case 'Depot Movement': return 3;
-                case 'Trip': return 4;
-                case 'Break': return 4; // Same priority as Trip to sort chronologically
-                case 'Trip to Depot': return 5;
-                case 'Checking Time': return 6;
-                case 'Duty End': return 7;
-                default: return 99;
-            }
-        };
-
-        rowLabels.sort((a, b) => {
+        // Step 4: Sort event rows logically
+        const getPriority = (type) => { const p = ['Calling Time', 'Preparation', 'Depot Movement', 'Trip', 'Break', 'Trip to Depot', 'Checking Time', 'Duty End']; return p.indexOf(type) !== -1 ? p.indexOf(type) : 99; };
+        const rowLabels = Array.from(labelMetadata.keys()).sort((a,b) => {
             const metaA = labelMetadata.get(a);
             const metaB = labelMetadata.get(b);
-            const priorityA = getPriority(metaA.type);
-            const priorityB = getPriority(metaB.type);
-            
-            // First, sort by the logical priority of the event type.
-            if (priorityA !== priorityB) {
-                return priorityA - priorityB;
-            }
-            
-            // If priorities are the same, sort by the earliest time the event occurs.
+            const prioA = getPriority(metaA.type);
+            const prioB = getPriority(metaB.type);
+            if (prioA !== prioB) return prioA - prioB;
+            if (metaA.type === 'Trip') return metaA.tripNumber !== metaB.tripNumber ? metaA.tripNumber - metaB.tripNumber : metaA.legNumber - metaB.legNumber;
             return metaA.sortTime - metaB.sortTime;
         });
-        
-        const tableRows = rowLabels.map(label => {
-            const rowData = { EVENT: label, data: [] };
-            allBusNamesSorted.forEach(busName => {
-                const cellData = displayMap[busName]?.[label] || '';
-                rowData.data.push(cellData);
-            });
-            return rowData;
-        });
 
-        return { shiftHeaderMap, allBusNamesSorted, tableRows };
+        // Step 5: Build final table rows
+        const tableRows = rowLabels.map(labelKey => ({
+            EVENT: labelMetadata.get(labelKey).displayText,
+            data: allBusNamesSorted.map(busName => displayMap[busName]?.[labelKey] || '')
+        }));
+
+        return { finalHeaders, allBusNamesSorted, tableRows };
     };
 
-    const { shiftHeaderMap, allBusNamesSorted, tableRows } = generateTableData();
+    const { finalHeaders, allBusNamesSorted, tableRows } = generateTableData();
     const hasSchedulesToDisplay = tableRows.length > 0 && allBusNamesSorted.length > 0;
 
     return (
-        <Container className="my-5">
+        <Container fluid className="my-5">
             <Card className="border-0 shadow-sm">
-                <Card.Header className="p-3 bg-light d-flex justify-content-between align-items-center">
-                    <h3 className="mb-0">Schedule for {route.routeName} (Route {route.routeNumber})</h3>
-                    <ButtonGroup>
-                        <Button variant="secondary" size="sm" onClick={handlePrint}>Print</Button>
-                        <Button as={Link} to="/" variant="outline-secondary" size="sm">Back</Button>
-                    </ButtonGroup>
+                <Card.Header className="p-3 bg-light d-flex justify-content-between align-items-center no-print">
+                    <h3 className="mb-0">Schedule: {route.routeName}</h3>
+                    <ButtonGroup><Button variant="outline-secondary" onClick={handlePrint}>Print</Button><Button as={Link} to="/" variant="secondary">Back</Button></ButtonGroup>
                 </Card.Header>
-                <Card.Body className="p-4">
+                <Card.Body>
                     {hasSchedulesToDisplay ? (
-                        <div style={{ overflowX: 'auto' }}>
-                            <Table striped bordered hover size="sm" className="mb-0">
-                                <thead>
-                                    <tr>
-                                        <th rowSpan="2" className="text-center align-middle">EVENT</th>
-                                        {Object.entries(shiftHeaderMap).map(([shiftName, busCount]) => (
-                                            <th key={shiftName} colSpan={busCount} className="text-center">{shiftName}</th>
-                                        ))}
-                                    </tr>
-                                    <tr>
-                                        {allBusNamesSorted.map(busName => <th key={busName} className="text-center">{busName.split(' - ')[0]}</th>)}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {tableRows.map((row, rowIndex) => (
-                                        <tr key={rowIndex}>
-                                            <td>{row.EVENT}</td>
-                                            {row.data.map((cellData, colIndex) => <td key={colIndex} style={{whiteSpace: 'nowrap'}}>{cellData}</td>)}
-                                        </tr>
+                        <Table bordered striped responsive hover size="sm">
+                            <thead>
+                                <tr>
+                                    <th rowSpan="2" className="align-middle text-center" style={{minWidth: '200px'}}>EVENT</th>
+                                    {finalHeaders.map(({ name, count }) => (
+                                        <th key={name} colSpan={count} className="text-center">{name}</th>
                                     ))}
-                                </tbody>
-                            </Table>
-                        </div>
-                    ) : <Alert variant="info">No schedule generated.</Alert>}
+                                </tr>
+                                <tr>
+                                    {allBusNamesSorted.map(busName => (
+                                        <th key={busName} className="text-center">{busName}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {tableRows.map((row, rowIndex) => (
+                                    <tr key={rowIndex}><td>{row.EVENT}</td>{row.data.map((cellData, colIndex) => <td key={colIndex} className="text-center">{cellData}</td>)}</tr>
+                                ))}
+                            </tbody>
+                        </Table>
+                    ) : ( <Alert variant="info">No schedule details could be generated.</Alert> )}
                 </Card.Body>
-                <Card.Footer className="bg-light p-3">
-                    <h5 className="text-muted">Raw Schedule Data (for debugging)</h5>
-                    <pre style={{ maxHeight: '200px', overflow: 'auto', background: '#f8f9fa', padding: '10px', borderRadius: '4px', border: '1px solid #dee2e6' }}>
-                        {JSON.stringify(scheduleOutput, null, 2)}
-                    </pre>
+                <Card.Footer className="text-muted no-print">
+                    <details><summary>Raw Schedule Data (for debugging)</summary><pre>{JSON.stringify(scheduleOutput, null, 2)}</pre></details>
                 </Card.Footer>
             </Card>
         </Container>

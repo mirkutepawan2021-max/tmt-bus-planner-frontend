@@ -19,6 +19,8 @@ const getInitialState = () => ({
     numberOfShifts: 2,
     hasDynamicSecondShift: false,
     secondShiftStartTime: '',
+    includeGeneralShift: false,
+    generalShift: { numberOfBuses: '', startTime: '' },
     frequency: {
         type: 'standard', 
         dynamicMinutes: ''
@@ -66,6 +68,7 @@ const BusRouteForm = () => {
                         crewDutyRules: { ...getInitialState().crewDutyRules, ...(data.crewDutyRules || {}) },
                         frequency: { ...getInitialState().frequency, ...(data.frequency || {}) },
                         timeAdjustmentRules: rulesWithIds,
+                        generalShift: { ...getInitialState().generalShift, ...(data.generalShift || {}) },
                     }));
 
                 } catch (err) {
@@ -217,7 +220,34 @@ const BusRouteForm = () => {
                     </Form.Group>
                 )}
             </Card>
-
+            <Card className="p-3 my-4 bg-light">
+                <Form.Group className="mb-3">
+                    <Form.Check 
+                        type="switch"
+                        id="include-general-shift-switch"
+                        label="Include General Shift Buses"
+                        name="includeGeneralShift"
+                        checked={formData.includeGeneralShift}
+                        onChange={handleChange}
+                    />
+                </Form.Group>
+                {formData.includeGeneralShift && (
+                    <Row>
+                        <Col md={6}>
+                            <Form.Group>
+                                <Form.Label>Number of General Buses</Form.Label>
+                                <Form.Control type="number" placeholder="e.g., 2" name="generalShift.numberOfBuses" value={formData.generalShift.numberOfBuses} onChange={handleChange} min="1" />
+                            </Form.Group>
+                        </Col>
+                        <Col md={6}>
+                            <Form.Group>
+                                <Form.Label>General Bus Calling Time</Form.Label>
+                                <Form.Control type="text" placeholder="HH:mm" name="generalShift.startTime" value={formData.generalShift.startTime} onChange={handleChange} />
+                            </Form.Group>
+                        </Col>
+                    </Row>
+                )}
+            </Card>
             <h5 className="mt-4">Frequency</h5>
             <ToggleButtonGroup type="radio" name="frequencyType" value={formData.frequency.type} onChange={handleFrequencyTypeChange} className="mb-3">
                 <ToggleButton id="freq-radio-1" value={'standard'} variant="outline-primary">Standard</ToggleButton>
