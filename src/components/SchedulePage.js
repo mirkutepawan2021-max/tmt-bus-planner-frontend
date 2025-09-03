@@ -118,16 +118,16 @@ const SchedulePage = () => {
                         <h3 className="text-center mb-4">{routeInfo?.routeName} ({routeInfo?.routeNumber})</h3>
                         
                         <Card className="mb-4">
-                            <Card.Header as="h5">Departures from: {fromLocation}</Card.Header>
+                            <Card.Header as="h5">Departures: {fromLocation} to {toLocation}</Card.Header>
                             <ListGroup variant="flush">
                                 <ListGroup.Item className="d-flex flex-wrap p-3">
                                     {timetable[fromLocation]?.length > 0 ? timetable[fromLocation].map((item, index) => (
                                         <div key={index} className="text-center border rounded m-1 time-block" style={{ minWidth: '85px' }}>
                                             <div className="p-1 bus-header" style={{ backgroundColor: '#e9ecef', borderTopLeftRadius: '0.25rem', borderTopRightRadius: '0.25rem' }}>
-                                                <small className="fw-semibold">{item.bus}</small>
+                                                <small className="fw-bold text-secondary">{item.bus}</small>
                                             </div>
                                             <div className="p-1 time-main">
-                                                <span className="fw-bold fs-5">{item.time}</span>
+                                                <span className="fw-bolder fs-4 text-dark">{item.time}</span>
                                             </div>
                                         </div>
                                     )) : (
@@ -138,16 +138,16 @@ const SchedulePage = () => {
                         </Card>
 
                         <Card>
-                            <Card.Header as="h5">Departures from: {toLocation}</Card.Header>
+                            <Card.Header as="h5">Departures: {toLocation} to {fromLocation}</Card.Header>
                             <ListGroup variant="flush">
                                 <ListGroup.Item className="d-flex flex-wrap p-3">
                                     {timetable[toLocation]?.length > 0 ? timetable[toLocation].map((item, index) => (
                                         <div key={index} className="text-center border rounded m-1 time-block" style={{ minWidth: '85px' }}>
                                             <div className="p-1 bus-header" style={{ backgroundColor: '#e9ecef', borderTopLeftRadius: '0.25rem', borderTopRightRadius: '0.25rem' }}>
-                                                <small className="fw-semibold">{item.bus}</small>
+                                                <small className="fw-bold text-secondary">{item.bus}</small>
                                             </div>
                                             <div className="p-1 time-main">
-                                                <span className="fw-bold fs-5">{item.time}</span>
+                                                <span className="fw-bolder fs-4 text-dark">{item.time}</span>
                                             </div>
                                         </div>
                                     )) : (
