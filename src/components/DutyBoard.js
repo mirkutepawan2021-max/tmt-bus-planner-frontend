@@ -49,7 +49,6 @@ const DutyBoard = () => {
                     const callingTimeEvent = busSchedule.find(e => e.type === 'Calling Time');
                     const preparationEvent = busSchedule.find(e => e.type === 'Preparation');
                     const firstTripEvent = busSchedule.find(e => e.type === 'Trip');
-                    const breakEvent = busSchedule.find(e => e.type === 'Break');
                     const dutyEndEvent = busSchedule.find(e => e.type === 'Duty End');
 
                     if (!callingTimeEvent || !dutyEndEvent) return;
@@ -59,32 +58,26 @@ const DutyBoard = () => {
                     const busNumber = busName.split(' ')[1];
                     const firstDepartureTime = firstTripEvent?.legs?.[0]?.departureTime || 'N/A';
                     
-                    const dutyData = {
-                        busName: busName, // Keep original name for sorting
+                    // --- CORRECTED LOGIC ---
+                    // Create only ONE entry per duty, regardless of breaks.
+                    duties.push({
+                        busName: busName,
                         busNo: busName.startsWith('General') ? busName.replace('Bus ', '') : busNumber,
                         reportingTime: callingTimeEvent.time,
-                        busBoardingTime: preparationEvent.time,
+                        busBoardingTime: preparationEvent?.time || 'N/A', // Added fallback
                         busDepartureTime: firstDepartureTime,
                         totalShiftHours: totalShiftHours,
                         shiftId: shiftId,
-                    };
-
-                    if (breakEvent) {
-                        duties.push(dutyData);
-                        duties.push({ ...dutyData, reportingTime: breakEvent.endTime, busBoardingTime: dutyEndEvent.time, busDepartureTime: '', totalShiftHours: '' });
-                    } else {
-                        duties.push(dutyData);
-                    }
+                    });
                 });
             });
 
-            // --- NEW SORTING LOGIC ---
             duties.sort((a, b) => {
                 const getSortOrder = (item) => {
-                    if (item.busName.startsWith('General')) return 2; // General is second
-                    if (item.shiftId === 'S1') return 1; // S1 is first
-                    if (item.shiftId === 'S2') return 3; // S2 is third
-                    return 4; // Other shifts after
+                    if (item.busName.startsWith('General')) return 2;
+                    if (item.shiftId === 'S1') return 1;
+                    if (item.shiftId === 'S2') return 3;
+                    return 4;
                 };
 
                 const orderA = getSortOrder(a);
@@ -92,7 +85,11 @@ const DutyBoard = () => {
 
                 if (orderA !== orderB) return orderA - orderB;
                 
-                // If in the same group, sort by reporting time
+                // If in the same group, sort by bus number, then by reporting time
+                const numA = parseInt(a.busNo.match(/\d+/)[0], 10);
+                const numB = parseInt(b.busNo.match(/\d+/)[0], 10);
+                if (numA !== numB) return numA - numB;
+
                 return a.reportingTime.localeCompare(b.reportingTime);
             });
 
