@@ -18,18 +18,15 @@ const BusScheduleView = () => {
                     fetch(`${API_URL}/api/bus-routes/${id}`),
                     fetch(`${API_URL}/api/bus-routes/${id}/schedule`)
                 ]);
-
                 if (!routeResponse.ok) throw new Error('Could not fetch route data.');
                 const routeData = await routeResponse.json(); 
                 setRoute(routeData);
-
                 if (!scheduleResponse.ok) {
                     const errorData = await scheduleResponse.json();
                     throw new Error(errorData.message || 'Could not generate schedule.');
                 }
                 const generatedData = await scheduleResponse.json();
                 setScheduleOutput(generatedData);
-
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -53,12 +50,17 @@ const BusScheduleView = () => {
         const shiftHeaderMap = {};
         const allBusDutyIds = [];
 
-        // --- CORRECTED LOGIC: Use a unique ID for each bus duty ---
         Object.entries(allSchedulesByShift).forEach(([shiftName, busesInShift]) => {
-            const busNamesForShift = Object.keys(busesInShift).sort((a,b) => parseInt(a.split(' ')[1]) - parseInt(b.split(' ')[1]));
+            const busNamesForShift = Object.keys(busesInShift).sort((a,b) => {
+                const isAGeneral = a.startsWith('General');
+                const isBGeneral = b.startsWith('General');
+                if (isAGeneral !== isBGeneral) return isAGeneral ? 1 : -1;
+                return parseInt(a.split(' ')[1]) - parseInt(b.split(' ')[1]);
+            });
+            
             shiftHeaderMap[shiftName] = busNamesForShift.length;
             busNamesForShift.forEach(busName => {
-                const dutyId = `${busName} - ${shiftName}`; // e.g., "Bus 1 - S1"
+                const dutyId = `${busName} - ${shiftName}`;
                 allBusDutyIds.push(dutyId);
                 busSchedulesLookup[dutyId] = busesInShift[busName];
             });
@@ -77,11 +79,11 @@ const BusScheduleView = () => {
                 
                 if (event.type === 'Trip') {
                     event.legs.forEach(leg => {
-                        const label = `Trip ${event.tripNumber} ${leg.departureLocation}`;
-                        displayMap[dutyId][label] = leg.departureTime;
-                        if (!labelMetadata.has(label) || leg.rawDepartureTime < labelMetadata.get(label).sortTime) {
-                            labelMetadata.set(label, { sortTime: leg.rawDepartureTime, type: event.type });
+                        const label = `Trip ${event.tripNumber} ${leg.departureLocation} -> ${leg.arrivalLocation}`;
+                        if (!labelMetadata.has(label)) {
+                           labelMetadata.set(label, { sortTime: leg.rawDepartureTime, type: event.type, tripNumber: event.tripNumber, legNumber: leg.legNumber });
                         }
+                        displayMap[dutyId][label] = leg.departureTime;
                     });
                 } else {
                     const label = (event.type === 'Break') ? `Break @ ${event.location}` : event.type;
@@ -90,12 +92,11 @@ const BusScheduleView = () => {
                         const leg = event.legs?.[0]; 
                         if (leg) displayMap[dutyId][label] = `${leg.departureTime} to ${leg.arrivalTime}`;
                     } else if (event.type === 'Break') {
-                        displayMap[dutyId][label] = `${event.startTime} to ${event.endTime}`;
+                        displayMap[dutyId][label] = `${event.startTime} - ${event.endTime}`;
                     } else {
                         displayMap[dutyId][label] = event.time;
                     }
-
-                    if (!labelMetadata.has(label) || sortTime < labelMetadata.get(label).sortTime) {
+                    if (!labelMetadata.has(label)) {
                         labelMetadata.set(label, { sortTime, type: event.type });
                     }
                 }
@@ -104,10 +105,19 @@ const BusScheduleView = () => {
         
         const rowLabels = Array.from(labelMetadata.keys());
 
+        // --- CORRECTED SORTING LOGIC ---
         const getPriority = (type) => {
-            const priorities = ['Calling Time', 'Preparation', 'Depot Movement', 'Trip', 'Break', 'Trip to Depot', 'Checking Time', 'Duty End'];
-            const index = priorities.indexOf(type);
-            return index === -1 ? 99 : index;
+            switch (type) {
+                case 'Calling Time': return 1;
+                case 'Preparation': return 2;
+                case 'Depot Movement': return 3;
+                case 'Trip': return 4;         // Priority 4
+                case 'Break': return 4;        // SAME Priority 4
+                case 'Trip to Depot': return 5;
+                case 'Checking Time': return 6;
+                case 'Duty End': return 7;
+                default: return 99;
+            }
         };
 
         rowLabels.sort((a, b) => {
@@ -115,7 +125,12 @@ const BusScheduleView = () => {
             const metaB = labelMetadata.get(b);
             const priorityA = getPriority(metaA.type);
             const priorityB = getPriority(metaB.type);
-            if (priorityA !== priorityB) return priorityA - priorityB;
+            
+            if (priorityA !== priorityB) {
+                return priorityA - priorityB;
+            }
+            
+            // If priorities are the same (like Trip and Break), sort by time
             return metaA.sortTime - metaB.sortTime;
         });
         
@@ -127,8 +142,8 @@ const BusScheduleView = () => {
             });
             return rowData;
         });
-
-        const sortedShiftHeaders = Object.entries(shiftHeaderMap).sort((a, b) => a[0].localeCompare(b[0]));
+        
+        const sortedShiftHeaders = Object.entries(shiftHeaderMap).sort(([a], [b]) => a.localeCompare(b));
         return { sortedShiftHeaders, allBusDutyIds, tableRows };
     };
 
@@ -163,7 +178,8 @@ const BusScheduleView = () => {
                                 <tbody>
                                     {tableRows.map((row, rowIndex) => (
                                         <tr key={rowIndex}>
-                                            <td>{row.EVENT}</td>
+                                            {/* Clean up the event label for display */}
+                                            <td>{row.EVENT.startsWith('Trip') ? row.EVENT.split(' ').slice(2).join(' ') : row.EVENT}</td>
                                             {row.data.map((cellData, colIndex) => <td key={colIndex} style={{whiteSpace: 'nowrap'}}>{cellData}</td>)}
                                         </tr>
                                     ))}
@@ -173,10 +189,12 @@ const BusScheduleView = () => {
                     ) : <Alert variant="info">No schedule generated.</Alert>}
                 </Card.Body>
                 <Card.Footer className="bg-light p-3">
-                    <h5 className="text-muted">Raw Schedule Data (for debugging)</h5>
-                    <pre style={{ maxHeight: '200px', overflow: 'auto', background: '#f8f9fa', padding: '10px', borderRadius: '4px', border: '1px solid #dee2e6' }}>
-                        {JSON.stringify(scheduleOutput, null, 2)}
-                    </pre>
+                    <details>
+                        <summary className="text-muted">Raw Schedule Data (for debugging)</summary>
+                        <pre style={{ maxHeight: '200px', overflow: 'auto', background: '#f8f9fa', padding: '10px', borderRadius: '4px', border: '1px solid #dee2e6' }}>
+                            {JSON.stringify(scheduleOutput, null, 2)}
+                        </pre>
+                    </details>
                 </Card.Footer>
             </Card>
         </Container>
