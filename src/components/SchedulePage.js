@@ -39,12 +39,25 @@ const SchedulePage = () => {
             [routeInfo.fromTerminal]: [],
             [routeInfo.toTerminal]: []
         };
+        
+        let firstCallingTime = '23:59';
 
+        // First pass: find the earliest calling time
+        Object.values(schedule).forEach(shift => {
+            Object.values(shift).forEach(busSchedule => {
+                const callingTimeEvent = busSchedule.find(e => e.type === 'Calling Time');
+                if (callingTimeEvent && callingTimeEvent.time < firstCallingTime) {
+                    firstCallingTime = callingTimeEvent.time;
+                }
+            });
+        });
+
+        // Second pass: collect all trips
         Object.values(schedule).forEach(shift => {
             Object.entries(shift).forEach(([busName, busSchedule]) => {
                 const busNo = busName.startsWith('General') 
                     ? `Gen ${busName.split(' ')[2]}` 
-                    : `S ${busName.split(' ')[1]}`;
+                    : `Bus ${busName.split(' ')[1]}`;
                 
                 busSchedule.forEach(event => {
                     if (event.type === 'Trip' && event.legs) {
@@ -61,21 +74,15 @@ const SchedulePage = () => {
             });
         });
 
-        // Remove duplicates and sort by time
-        const uniqueSort = (arr) => {
-            const seen = new Set();
-            return arr.filter(item => {
-                const identifier = `${item.time}-${item.bus}`;
-                const isDuplicate = seen.has(identifier);
-                if (!isDuplicate) {
-                    seen.add(identifier);
-                }
-                return !isDuplicate;
-            }).sort((a, b) => a.time.localeCompare(b.time));
+        // Custom sort function that respects the first calling time
+        const customSort = (arr) => {
+            return arr
+                .filter(item => item.time >= firstCallingTime) // Filter out times before the first call
+                .sort((a, b) => a.time.localeCompare(b.time));
         };
         
-        timetable[routeInfo.fromTerminal] = uniqueSort(timetable[routeInfo.fromTerminal]);
-        timetable[routeInfo.toTerminal] = uniqueSort(timetable[routeInfo.toTerminal]);
+        timetable[routeInfo.fromTerminal] = customSort(timetable[routeInfo.fromTerminal]);
+        timetable[routeInfo.toTerminal] = customSort(timetable[routeInfo.toTerminal]);
 
         return timetable;
     };
