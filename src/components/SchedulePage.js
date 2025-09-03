@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Container, Card, Spinner, Alert, Button, ListGroup, Badge } from 'react-bootstrap';
+import { Container, Card, Spinner, Alert, Button, ListGroup } from 'react-bootstrap';
 import API_URL from '../apiConfig';
 
 const SchedulePage = () => {
@@ -13,13 +13,11 @@ const SchedulePage = () => {
     useEffect(() => {
         const fetchSchedule = async () => {
             try {
-                // Fetch route details first
                 const routeResponse = await fetch(`${API_URL}/api/bus-routes/${id}`);
                 if (!routeResponse.ok) throw new Error('Failed to fetch route details.');
                 const routeData = await routeResponse.json();
                 setRouteInfo(routeData);
 
-                // Then fetch the generated schedule
                 const scheduleResponse = await fetch(`${API_URL}/api/bus-routes/${id}/schedule`);
                 if (!scheduleResponse.ok) throw new Error('Failed to generate schedule.');
                 const scheduleData = await scheduleResponse.json();
@@ -42,20 +40,20 @@ const SchedulePage = () => {
             [routeInfo.toTerminal]: []
         };
 
-        // Iterate through all shifts and all buses
         Object.values(schedule).forEach(shift => {
-            Object.values(shift).forEach(busSchedule => {
+            Object.entries(shift).forEach(([busName, busSchedule]) => {
+                const busNo = busName.startsWith('General') 
+                    ? `Gen ${busName.split(' ')[2]}` 
+                    : `S ${busName.split(' ')[1]}`;
+                
                 busSchedule.forEach(event => {
-                    // Check if the event is a 'Trip'
                     if (event.type === 'Trip' && event.legs) {
                         event.legs.forEach(leg => {
-                            // Leg 1 is from the starting terminal
+                            const departureData = { time: leg.departureTime, bus: busNo };
                             if (leg.legNumber === 1) {
-                                timetable[routeInfo.fromTerminal].push(leg.departureTime);
-                            } 
-                            // Leg 2 is from the destination terminal (return trip)
-                            else if (leg.legNumber === 2) {
-                                timetable[routeInfo.toTerminal].push(leg.departureTime);
+                                timetable[routeInfo.fromTerminal].push(departureData);
+                            } else if (leg.legNumber === 2) {
+                                timetable[routeInfo.toTerminal].push(departureData);
                             }
                         });
                     }
@@ -63,9 +61,21 @@ const SchedulePage = () => {
             });
         });
 
-        // Sort and remove duplicates
-        timetable[routeInfo.fromTerminal] = [...new Set(timetable[routeInfo.fromTerminal])].sort();
-        timetable[routeInfo.toTerminal] = [...new Set(timetable[routeInfo.toTerminal])].sort();
+        // Remove duplicates and sort by time
+        const uniqueSort = (arr) => {
+            const seen = new Set();
+            return arr.filter(item => {
+                const identifier = `${item.time}-${item.bus}`;
+                const isDuplicate = seen.has(identifier);
+                if (!isDuplicate) {
+                    seen.add(identifier);
+                }
+                return !isDuplicate;
+            }).sort((a, b) => a.time.localeCompare(b.time));
+        };
+        
+        timetable[routeInfo.fromTerminal] = uniqueSort(timetable[routeInfo.fromTerminal]);
+        timetable[routeInfo.toTerminal] = uniqueSort(timetable[routeInfo.toTerminal]);
 
         return timetable;
     };
@@ -76,7 +86,7 @@ const SchedulePage = () => {
 
     if (loading) return <div className="text-center p-5"><Spinner animation="border" /></div>;
     if (error) return <Alert variant="danger" className="m-4">{error}</Alert>;
-    if (!schedule) return <Alert variant="warning" className="m-4">No schedule data available for this route.</Alert>;
+    if (!schedule || !routeInfo) return <Alert variant="warning" className="m-4">No schedule data available.</Alert>;
 
     const timetable = processTimetable();
     const fromLocation = routeInfo.fromTerminal;
@@ -84,42 +94,42 @@ const SchedulePage = () => {
 
     return (
         <>
-            {/* These styles are only applied when printing */}
-            <style type="text/css" media="print">
-                {`
-                    @page { size: auto; margin: 0.5in; }
-                    body { background-color: #FFFFFF !important; }
-                    .no-print { display: none !important; }
-                    .card { border: none !important; box-shadow: none !important; }
-                    h3, h5 { text-align: center; color: #000 !important; }
-                    .badge { border: 1px solid #000 !important; color: #000 !important; background-color: #FFFFFF !important; }
-                `}
-            </style>
+            <style type="text/css" media="print">{`
+                @page { size: auto; margin: 0.5in; }
+                body { background-color: #FFFFFF !important; }
+                .no-print { display: none !important; }
+                .card { border: none !important; box-shadow: none !important; }
+                h3, h5 { text-align: center; color: #000 !important; }
+                .time-block { border: 1px solid #dee2e6 !important; }
+                .bus-header { background-color: #e9ecef !important; color: #212529 !important; font-weight: 600; }
+                .time-main { color: #212529 !important; }
+            `}</style>
 
             <Container className="my-5">
                 <Card className="border-0 shadow-sm">
                     <Card.Header className="p-3 bg-light d-flex justify-content-between align-items-center no-print">
                         <h3 className="mb-0">Public Bus Timetable</h3>
                         <div>
-                            <Button variant="outline-secondary" onClick={handlePrint} className="me-2">
-                                Print
-                            </Button>
-                            <Button as={Link} to="/" variant="secondary">
-                                Back to Dashboard
-                            </Button>
+                            <Button variant="outline-secondary" onClick={handlePrint} className="me-2">Print</Button>
+                            <Button as={Link} to="/" variant="secondary">Back to Dashboard</Button>
                         </div>
                     </Card.Header>
                     <Card.Body>
                         <h3 className="text-center mb-4">{routeInfo?.routeName} ({routeInfo?.routeNumber})</h3>
                         
                         <Card className="mb-4">
-                            <Card.Header as="h5">Departures: {fromLocation} to {toLocation}</Card.Header>
+                            <Card.Header as="h5">Departures from: {fromLocation}</Card.Header>
                             <ListGroup variant="flush">
-                                <ListGroup.Item className="d-flex flex-wrap">
-                                    {timetable[fromLocation]?.length > 0 ? timetable[fromLocation].map((time, index) => (
-                                        <Badge key={index} bg="primary" className="m-1 p-2" style={{ fontSize: '1rem' }}>
-                                            {time}
-                                        </Badge>
+                                <ListGroup.Item className="d-flex flex-wrap p-3">
+                                    {timetable[fromLocation]?.length > 0 ? timetable[fromLocation].map((item, index) => (
+                                        <div key={index} className="text-center border rounded m-1 time-block" style={{ minWidth: '85px' }}>
+                                            <div className="p-1 bus-header" style={{ backgroundColor: '#e9ecef', borderTopLeftRadius: '0.25rem', borderTopRightRadius: '0.25rem' }}>
+                                                <small className="fw-semibold">{item.bus}</small>
+                                            </div>
+                                            <div className="p-1 time-main">
+                                                <span className="fw-bold fs-5">{item.time}</span>
+                                            </div>
+                                        </div>
                                     )) : (
                                         <p className="p-3 text-muted">No departures scheduled.</p>
                                     )}
@@ -128,13 +138,18 @@ const SchedulePage = () => {
                         </Card>
 
                         <Card>
-                            <Card.Header as="h5">Departures: {toLocation} to {fromLocation}</Card.Header>
+                            <Card.Header as="h5">Departures from: {toLocation}</Card.Header>
                             <ListGroup variant="flush">
-                                <ListGroup.Item className="d-flex flex-wrap">
-                                    {timetable[toLocation]?.length > 0 ? timetable[toLocation].map((time, index) => (
-                                        <Badge key={index} bg="success" className="m-1 p-2" style={{ fontSize: '1rem' }}>
-                                            {time}
-                                        </Badge>
+                                <ListGroup.Item className="d-flex flex-wrap p-3">
+                                    {timetable[toLocation]?.length > 0 ? timetable[toLocation].map((item, index) => (
+                                        <div key={index} className="text-center border rounded m-1 time-block" style={{ minWidth: '85px' }}>
+                                            <div className="p-1 bus-header" style={{ backgroundColor: '#e9ecef', borderTopLeftRadius: '0.25rem', borderTopRightRadius: '0.25rem' }}>
+                                                <small className="fw-semibold">{item.bus}</small>
+                                            </div>
+                                            <div className="p-1 time-main">
+                                                <span className="fw-bold fs-5">{item.time}</span>
+                                            </div>
+                                        </div>
                                     )) : (
                                         <p className="p-3 text-muted">No departures scheduled.</p>
                                     )}
@@ -148,4 +163,4 @@ const SchedulePage = () => {
     );
 };
 
-export default SchedulePage; // Or SchedulePage, depending on your file name
+export default SchedulePage;
