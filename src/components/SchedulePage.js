@@ -35,24 +35,10 @@ const SchedulePage = () => {
     const processTimetable = () => {
         if (!schedule || !routeInfo) return {};
 
-        const timetable = {
-            [routeInfo.fromTerminal]: [],
-            [routeInfo.toTerminal]: []
-        };
-        
-        let firstCallingTime = '23:59';
+        const fromAllTrips = [];
+        const toAllTrips = [];
 
-        // First pass: find the earliest calling time
-        Object.values(schedule).forEach(shift => {
-            Object.values(shift).forEach(busSchedule => {
-                const callingTimeEvent = busSchedule.find(e => e.type === 'Calling Time');
-                if (callingTimeEvent && callingTimeEvent.time < firstCallingTime) {
-                    firstCallingTime = callingTimeEvent.time;
-                }
-            });
-        });
-
-        // Second pass: collect all trips
+        // Step 1: Collect all trips for each direction, preserving original order
         Object.values(schedule).forEach(shift => {
             Object.entries(shift).forEach(([busName, busSchedule]) => {
                 const busNo = busName.startsWith('General') 
@@ -64,9 +50,9 @@ const SchedulePage = () => {
                         event.legs.forEach(leg => {
                             const departureData = { time: leg.departureTime, bus: busNo };
                             if (leg.legNumber === 1) {
-                                timetable[routeInfo.fromTerminal].push(departureData);
+                                fromAllTrips.push(departureData);
                             } else if (leg.legNumber === 2) {
-                                timetable[routeInfo.toTerminal].push(departureData);
+                                toAllTrips.push(departureData);
                             }
                         });
                     }
@@ -74,17 +60,50 @@ const SchedulePage = () => {
             });
         });
 
-        // Custom sort function that respects the first calling time
-        const customSort = (arr) => {
-            return arr
-                .filter(item => item.time >= firstCallingTime) // Filter out times before the first call
-                .sort((a, b) => a.time.localeCompare(b.time));
+        // Custom function to create the wrap-around sort order
+        const createWrapAroundSort = (trips, anchorBus) => {
+            // First, get a unique list of trips
+            const seen = new Set();
+            const uniqueTrips = trips.filter(item => {
+                const identifier = `${item.time}-${item.bus}`;
+                if (seen.has(identifier)) return false;
+                seen.add(identifier);
+                return true;
+            });
+
+            // Find the first occurrence of the anchor bus in the original data
+            const anchorIndex = uniqueTrips.findIndex(trip => trip.bus === anchorBus);
+
+            if (anchorIndex !== -1) {
+                // Isolate the anchor trip and its time
+                const anchorTrip = uniqueTrips[anchorIndex];
+                const anchorTime = anchorTrip.time;
+
+                // Get all other trips
+                const otherTrips = uniqueTrips.filter((_, index) => index !== anchorIndex);
+
+                // Create two groups: after the anchor and before the anchor
+                const afterOrEqualAnchor = otherTrips.filter(trip => trip.time >= anchorTime);
+                const beforeAnchor = otherTrips.filter(trip => trip.time < anchorTime);
+
+                // Sort both groups chronologically
+                afterOrEqualAnchor.sort((a, b) => a.time.localeCompare(b.time));
+                beforeAnchor.sort((a, b) => a.time.localeCompare(b.time));
+
+                // Return the final, reassembled list
+                return [anchorTrip, ...afterOrEqualAnchor, ...beforeAnchor];
+            }
+            
+            // If anchor bus is not found, return the list sorted chronologically as a fallback
+            return uniqueTrips.sort((a, b) => a.time.localeCompare(b.time));
         };
         
-        timetable[routeInfo.fromTerminal] = customSort(timetable[routeInfo.fromTerminal]);
-        timetable[routeInfo.toTerminal] = customSort(timetable[routeInfo.toTerminal]);
+        const finalTimetable = {
+            [routeInfo.fromTerminal]: createWrapAroundSort(fromAllTrips, 'Bus 1'),
+            [routeInfo.toTerminal]: createWrapAroundSort(toAllTrips, 'Bus 1')
+        };
 
-        return timetable;
+        return finalTimetable;
     };
 
     const handlePrint = () => {
