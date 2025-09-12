@@ -33,7 +33,8 @@ const getInitialState = () => ({
         breakWindowStart: '150',
         breakWindowEnd: '240',
         breakLayoverDuration: '0'
-    }
+    },
+    customCallingTimes: [] 
 });
 
 const BusRouteForm = () => {
@@ -120,7 +121,25 @@ const BusRouteForm = () => {
     const handleFrequencyTypeChange = (val) => {
         setFormData(prev => ({ ...prev, frequency: { ...prev.frequency, type: val } }));
     };
+   const handleCustomTimeChange = (index, e) => {
+        const { name, value } = e.target;
+        const list = [...formData.customCallingTimes];
+        list[index][name] = value;
+        setFormData(prev => ({ ...prev, customCallingTimes: list }));
+    };
 
+    const handleAddCustomTime = () => {
+        setFormData(prev => ({
+            ...prev,
+            customCallingTimes: [...(prev.customCallingTimes || []), { busNumber: '', callingTime: '' }]
+        }));
+    };
+
+    const handleRemoveCustomTime = (index) => {
+        const list = [...formData.customCallingTimes];
+        list.splice(index, 1);
+        setFormData(prev => ({ ...prev, customCallingTimes: list }));
+    };
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -145,6 +164,8 @@ const BusRouteForm = () => {
     const nextStep = () => setStep(prev => prev + 1);
     const prevStep = () => setStep(prev => prev - 1);
     const isStepValid = () => { /* ... validation logic ... */ return true; };
+    const numShifts = parseInt(formData.numberOfShifts, 10) || 1;
+    const shiftOptions = Array.from({ length: numShifts }, (_, i) => i + 1);
 
     const renderStep1 = () => (
         <>
@@ -153,6 +174,7 @@ const BusRouteForm = () => {
                 <Col md={6}><Form.Group className="mb-3"><Form.Label>Route Number</Form.Label><Form.Control type="text" placeholder="e.g., 101" name="routeNumber" value={formData.routeNumber} onChange={handleChange} required /></Form.Group></Col>
                 <Col md={6}><Form.Group className="mb-3"><Form.Label>Route Name</Form.Label><Form.Control type="text" placeholder="e.g., Central to Downtown" name="routeName" value={formData.routeName} onChange={handleChange} required /></Form.Group></Col>
             </Row>
+            
             <Row>
                 <Col md={6}><Form.Group className="mb-3"><Form.Label>From Terminal</Form.Label><Form.Control type="text" placeholder="Enter starting terminal" name="fromTerminal" value={formData.fromTerminal} onChange={handleChange} required /></Form.Group></Col>
                 <Col md={6}><Form.Group className="mb-3"><Form.Label>To Terminal</Form.Label><Form.Control type="text" placeholder="Enter ending terminal" name="toTerminal" value={formData.toTerminal} onChange={handleChange} required /></Form.Group></Col>
@@ -207,7 +229,49 @@ const BusRouteForm = () => {
                 <Col md={4}><Form.Group className="mb-3"><Form.Label>Duty Duration (hrs)</Form.Label><Form.Control type="number" placeholder="e.g., 8" name="dutyDurationHours" value={formData.dutyDurationHours} onChange={handleChange} required /></Form.Group></Col>
                 <Col md={4}><Form.Group className="mb-3"><Form.Label>Number of Shifts</Form.Label><Form.Control type="number" placeholder="e.g., 2" name="numberOfShifts" value={formData.numberOfShifts} onChange={handleChange} required /></Form.Group></Col>
             </Row>
-
+             <Card className="p-3 my-4">
+                <h5>Custom Calling Times (Optional)</h5>
+                <p className="text-muted small">
+                    Override the automatic start time for specific buses. Any bus number not listed here will start based on frequency.
+                </p>
+                {(formData.customCallingTimes || []).map((item, index) => (
+                    <Row key={index} className="mb-2 align-items-end">
+                        <Col md={3}>
+                                <Form.Group>
+                                    <Form.Label>Bus Number</Form.Label>
+                                    <Form.Control type="number" name="busNumber" placeholder="e.g., 1" value={item.busNumber} onChange={(e) => handleCustomTimeChange(index, e)} required />
+                                </Form.Group>
+                            </Col>
+                            <Col md={3}>
+                                <Form.Group>
+                                    <Form.Label>For Shift</Form.Label>
+                                    <Form.Select name="shift" value={item.shift} onChange={(e) => handleCustomTimeChange(index, e)} required>
+                                        <option value="">Select Shift...</option>
+                                        {shiftOptions.map(shiftNum => (
+                                            <option key={shiftNum} value={shiftNum}>
+                                                Shift {shiftNum}
+                                            </option>
+                                        ))}
+                                    </Form.Select>
+                                </Form.Group>
+                            </Col>
+                            <Col md={3}>
+                                <Form.Group>
+                                    <Form.Label>Calling Time</Form.Label>
+                                    <Form.Control type="text" name="callingTime" placeholder="HH:mm" pattern="[0-2][0-9]:[0-5][0-9]" value={item.callingTime} onChange={(e) => handleCustomTimeChange(index, e)} required />
+                                </Form.Group>
+                            </Col>
+                        <Col md={2}>
+                            <Button variant="outline-danger" size="sm" onClick={() => handleRemoveCustomTime(index)}>
+                                Remove
+                            </Button>
+                        </Col>
+                    </Row>
+                ))}
+                <Button variant="outline-primary" size="sm" onClick={handleAddCustomTime} className="mt-2 align-self-start">
+                    + Add Custom Time
+                </Button>
+            </Card>
             <Card className="p-3 my-4 bg-light">
                 <Form.Group>
                     <Form.Check type="switch" id="dynamic-second-shift-switch" label="Set a specific start time for the second shift?" name="hasDynamicSecondShift" checked={formData.hasDynamicSecondShift} onChange={handleChange}/>
@@ -258,13 +322,32 @@ const BusRouteForm = () => {
             )}
 
             <h5 className="mt-4">Time Adjustment Rules</h5>
-            {(formData.timeAdjustmentRules || []).map((rule, index) => (
-                <Card key={rule.id || index} className="p-3 mb-3 bg-light"><Row className="align-items-end">
-                    <Col md={4}><Form.Group><Form.Label>Start Time</Form.Label><Form.Control type="text" placeholder="HH:mm" pattern="[0-2][0-9]:[0-5][0-9]" value={rule.startTime} onChange={(e) => handleAdjustmentRuleChange(index, 'startTime', e.target.value)} /></Form.Group></Col>
-                    <Col md={4}><Form.Group><Form.Label>End Time</Form.Label><Form.Control type="text" placeholder="HH:mm" pattern="[0-2][0-9]:[0-5][0-9]" value={rule.endTime} onChange={(e) => handleAdjustmentRuleChange(index, 'endTime', e.target.value)} /></Form.Group></Col>
-                    <Col md={3}><Form.Group><Form.Label>Adjustment (mins)</Form.Label><Form.Control type="number" placeholder="e.g., 5" value={rule.timeAdjustment} onChange={(e) => handleAdjustmentRuleChange(index, 'timeAdjustment', e.target.value)} /></Form.Group></Col>
-                    <Col md={1}><Button variant="outline-danger" onClick={() => handleRemoveAdjustmentRule(rule.id || index)}>X</Button></Col>
-                </Row></Card>
+            {(formData.timeAdjustmentRules || []).map((rule) => (
+                <Card key={rule.id} className="p-3 mb-3 bg-light">
+                    <Row className="align-items-end">
+                        <Col md={4}>
+                            <Form.Group>
+                                <Form.Label>Start Time</Form.Label>
+                                <Form.Control type="text" placeholder="HH:mm" pattern="[0-2][0-9]:[0-5][0-9]" value={rule.startTime} onChange={(e) => handleAdjustmentRuleChange(rule.id, 'startTime', e.target.value)} />
+                            </Form.Group>
+                        </Col>
+                        <Col md={4}>
+                            <Form.Group>
+                                <Form.Label>End Time</Form.Label>
+                                <Form.Control type="text" placeholder="HH:mm" pattern="[0-2][0-9]:[0-5][0-9]" value={rule.endTime} onChange={(e) => handleAdjustmentRuleChange(rule.id, 'endTime', e.target.value)} />
+                            </Form.Group>
+                        </Col>
+                        <Col md={3}>
+                            <Form.Group>
+                                <Form.Label>Adjustment (mins)</Form.Label>
+                                <Form.Control type="number" placeholder="e.g., 5" value={rule.timeAdjustment} onChange={(e) => handleAdjustmentRuleChange(rule.id, 'timeAdjustment', e.target.value)} />
+                            </Form.Group>
+                        </Col>
+                        <Col md={1}>
+                            <Button variant="outline-danger" onClick={() => handleRemoveAdjustmentRule(rule.id)}>X</Button>
+                        </Col>
+                    </Row>
+                </Card>
             ))}
             <Button variant="outline-secondary" onClick={handleAddAdjustmentRule} className="mb-4">+ Add Rule</Button>
 
