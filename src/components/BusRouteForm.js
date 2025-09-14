@@ -17,7 +17,6 @@ const getInitialState = () => ({
     serviceStartTime: '',
     dutyDurationHours: 8, 
     numberOfShifts: 2,
-    hasDynamicSecondShift: false,
     secondShiftStartTime: '',
     includeGeneralShift: false,
     generalShift: { numberOfBuses: '', startTime: '' },
@@ -273,18 +272,6 @@ const BusRouteForm = () => {
                 </Button>
             </Card>
             <Card className="p-3 my-4 bg-light">
-                <Form.Group>
-                    <Form.Check type="switch" id="dynamic-second-shift-switch" label="Set a specific start time for the second shift?" name="hasDynamicSecondShift" checked={formData.hasDynamicSecondShift} onChange={handleChange}/>
-                </Form.Group>
-                {formData.hasDynamicSecondShift && (
-                    <Form.Group className="mt-3">
-                        <Form.Label>Second Shift Start Time</Form.Label>
-                        <Form.Control type="text" placeholder="HH:mm (e.g., 14:30)" pattern="[0-2][0-9]:[0-5][0-9]" name="secondShiftStartTime" value={formData.secondShiftStartTime} onChange={handleChange} required={formData.hasDynamicSecondShift} />
-                        <Form.Text muted>Use 24-hour format.</Form.Text>
-                    </Form.Group>
-                )}
-            </Card>
-            <Card className="p-3 my-4 bg-light">
                 <Form.Group className="mb-3">
                     <Form.Check 
                         type="switch"
@@ -384,7 +371,6 @@ const BusRouteForm = () => {
                 <Col md={6} className="mb-2"><strong>To:</strong><p>{formData.toTerminal}</p></Col>
                 <Col md={6} className="mb-2"><strong>Buses:</strong><p>{formData.busesAssigned}</p></Col>
                 <Col md={6} className="mb-2"><strong>First Shift Start:</strong><p>{formData.serviceStartTime}</p></Col>
-                {formData.hasDynamicSecondShift && <Col md={6} className="mb-2"><strong>Second Shift Start:</strong><p>{formData.secondShiftStartTime}</p></Col>}
                 <Col md={12} className="mb-2"><strong>Frequency:</strong><p>{formData.frequency.type === 'dynamic' ? `Dynamic (${formData.frequency.dynamicMinutes} mins)` : 'Standard'}</p></Col>
             </Row>
         </>
